@@ -214,3 +214,4 @@ This project is for academic/educational purposes.
 ## 20. Acknowledgments
 
 Based on the research paper: "An AI Based Approach for Personalized Nutrition and Food Menu Planning" by Azzimani et al., IEEE ICECOCS 2022.
+# NutriAI
