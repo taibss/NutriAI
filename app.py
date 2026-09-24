@@ -702,7 +702,7 @@ with tab_meal:
 
             # Explanation
             st.markdown(
-                """
+                r"""
 **How A* selects this meal:**
 
 1. **State:** Each meal combination is a search state — a tuple of
