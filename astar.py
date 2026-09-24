@@ -31,17 +31,20 @@ Transition:
     Applying an action to a state produces a new state (new meal).
 
 g(n):
-    The cost accumulated so far -- sum of squared nutrient deviations
+    State evaluation cost -- sum of squared nutrient deviations
     from the target. This represents how far the current meal is from
     meeting all nutritional goals.
 
 h(n):
-    Heuristic -- estimated remaining cost to reach the target. Uses
-    normalized differences between current and target nutrients:
-    calories, protein, carbs, and fat.
+    Heuristic -- estimated nutritional gap using normalized absolute
+    differences between current and target nutrients. NOTE: because g
+    uses squared deviations and h uses absolute differences, h is NOT
+    strictly admissible (it can overestimate when deviations < 1).
+    The search therefore behaves as a heuristic best-first search
+    rather than guaranteeing optimality.
 
 f(n) = g(n) + h(n):
-    Total estimated cost. A* expands the state with lowest f(n).
+    Total estimated cost. The search expands the state with lowest f(n).
 
 Goal State:
     The meal's nutritional values are within an acceptable tolerance
@@ -104,6 +107,8 @@ class AStarResult:
     f_cost: float
     nodes_explored: int
     search_limit_reached: bool
+    goal_reached: bool = False
+    f_cost_history: list[float] = field(default_factory=list)
 
 
 def load_food_data(csv_path: str = "food_data.csv") -> pd.DataFrame:
@@ -194,8 +199,11 @@ def heuristic(
          + |carb_cur - carb_tgt|/NORM_CARB
          + |fat_cur - fat_tgt|/NORM_FAT
 
-    This is admissible (never overestimates) because it measures the
-    raw gap without assuming any single food can perfectly fill it.
+    NOTE: This heuristic is NOT strictly admissible with respect to g(n)
+    because g uses squared deviations while h uses absolute differences.
+    For deviations < 1 (the common case after normalization), |d| > d²,
+    so h can overestimate. The search still finds good solutions in
+    practice but does not guarantee optimality.
     """
     cal, prot, carb, fat = compute_meal_nutrition(state, food_df)
 
@@ -343,6 +351,10 @@ def astar_search(
     Returns:
         AStarResult with the best meal found
     """
+    # Search history tracking for the A* explorer
+    f_cost_history: list[float] = []
+    goal_found = False
+
     # Initial state: empty meal
     initial_state: tuple = ()
 
@@ -386,9 +398,14 @@ def astar_search(
         if current.h_cost < best_node.h_cost:
             best_node = current
 
+        # Record best f-cost at this step
+        f_cost_history.append(best_node.f_cost)
+
         # Check if goal state reached
         if is_goal_state(current.state, food_df, target):
             best_node = current
+            goal_found = True
+            f_cost_history.append(best_node.f_cost)
             break
 
         # Expand: generate successor states
@@ -438,4 +455,6 @@ def astar_search(
         f_cost=round(best_node.f_cost, 4),
         nodes_explored=nodes_explored,
         search_limit_reached=search_limit_reached,
+        goal_reached=goal_found,
+        f_cost_history=f_cost_history,
     )
